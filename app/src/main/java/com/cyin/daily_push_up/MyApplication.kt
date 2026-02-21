@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.cyin.daily_push_up.api.RetrofitClient
 import com.cyin.daily_push_up.data.AppDatabase
 import com.cyin.daily_push_up.widget.SyncWorker
 import java.util.concurrent.TimeUnit
@@ -18,6 +19,7 @@ class MyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        RetrofitClient.init(this)
         database = Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java, "daily-push-up-db"

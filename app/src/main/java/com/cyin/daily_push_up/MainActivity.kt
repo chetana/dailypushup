@@ -10,11 +10,16 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.cyin.daily_push_up.auth.GoogleAuthManager
+import com.cyin.daily_push_up.auth.TokenStore
 import com.cyin.daily_push_up.data.PushUpEntry
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -55,6 +60,35 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        if (TokenStore.isLoggedIn(this)) {
+            initApp()
+        } else {
+            performSignIn()
+        }
+    }
+
+    private fun performSignIn() {
+        lifecycleScope.launch {
+            try {
+                val credential = GoogleAuthManager.signIn(this@MainActivity)
+                TokenStore.saveToken(
+                    this@MainActivity,
+                    credential.idToken,
+                    credential.id,       // email
+                    credential.displayName
+                )
+                initApp()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Sign-in failed: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun initApp() {
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
 
         bindViews()
@@ -113,6 +147,30 @@ class MainActivity : AppCompatActivity() {
             }
             renderCalendar(viewModel.entries.value ?: emptyList())
         }
+
+        // Long press on title bar for sign-out
+        findViewById<View>(R.id.statCurrentStreak).rootView.findViewById<TextView>(R.id.todayTargetText)?.setOnLongClickListener {
+            showSignOutDialog()
+            true
+        }
+    }
+
+    private fun showSignOutDialog() {
+        val email = TokenStore.getUserEmail(this) ?: "Unknown"
+        AlertDialog.Builder(this)
+            .setTitle("Sign Out")
+            .setMessage("Signed in as $email.\nDo you want to sign out?")
+            .setPositiveButton("Sign Out") { _, _ ->
+                lifecycleScope.launch {
+                    try {
+                        GoogleAuthManager.signOut(this@MainActivity)
+                    } catch (_: Exception) { }
+                    TokenStore.clear(this@MainActivity)
+                    recreate()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun setupCalendarHeaders() {
@@ -174,6 +232,13 @@ class MainActivity : AppCompatActivity() {
 
         viewModel.error.observe(this) { error ->
             if (error != null) {
+                // If we get an auth error, re-trigger sign-in
+                if (error.contains("401") || error.contains("Unauthorized", ignoreCase = true)) {
+                    if (!TokenStore.isLoggedIn(this)) {
+                        performSignIn()
+                        return@observe
+                    }
+                }
                 Toast.makeText(this, error, Toast.LENGTH_SHORT).show()
                 viewModel.clearError()
             }
