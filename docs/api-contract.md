@@ -2,24 +2,40 @@
 
 Base URL : `https://chetana.dev`
 
-L'application communique avec trois endpoints REST sur l'API Health hebergee sur Vercel.
+## Authentification
+
+Tous les endpoints necessitent un header d'authentification :
+
+```
+Authorization: Bearer <google_id_token>
+```
+
+Le backend verifie le token avec `google-auth-library`, extrait l'email et le Google ID, et upsert l'utilisateur dans la table `users`. Toutes les requetes sont scopees au `userId` de l'utilisateur authentifie.
+
+### Reponses d'erreur auth
+
+| Code | Scenario |
+|------|----------|
+| `401` | Token absent, invalide ou expire |
+
+L'app Android intercepte les 401 via l'OkHttp interceptor, clear le token, et relance le sign-in au prochain cycle.
 
 ---
 
 ## GET `/api/health/stats`
 
-Recupere les statistiques globales et le statut du jour.
+Recupere les statistiques de l'utilisateur authentifie et le statut du jour.
 
 ### Response `200 OK`
 
 ```json
 {
-  "totalPushups": 4530,
-  "totalDays": 142,
-  "currentStreak": 12,
-  "longestStreak": 45,
-  "todayValidated": false,
-  "todayTarget": 30
+  "totalPushups": 1080,
+  "totalDays": 52,
+  "currentStreak": 52,
+  "longestStreak": 52,
+  "todayValidated": true,
+  "todayTarget": 25
 }
 ```
 
@@ -44,27 +60,20 @@ StatsResponse  ──►  CachedStats (id=0, singleton)
 
 ## GET `/api/health/entries`
 
-Recupere l'historique complet des entries push-ups.
+Recupere l'historique complet des entries push-ups de l'utilisateur authentifie.
 
 ### Response `200 OK`
 
 ```json
 [
   {
-    "id": "abc123",
+    "id": 157,
+    "userId": 1,
     "date": "2026-02-21",
-    "pushups": 30,
+    "pushups": 25,
     "validated": true,
     "validatedAt": "2026-02-21T08:30:00.000Z",
     "createdAt": "2026-02-21T08:30:00.000Z"
-  },
-  {
-    "id": "def456",
-    "date": "2026-02-20",
-    "pushups": 35,
-    "validated": true,
-    "validatedAt": "2026-02-20T07:15:00.000Z",
-    "createdAt": "2026-02-20T07:15:00.000Z"
   }
 ]
 ```
@@ -73,7 +82,8 @@ Recupere l'historique complet des entries push-ups.
 
 | Champ | Type | Description |
 |-------|------|-------------|
-| `id` | `string?` | Identifiant unique de l'entry |
+| `id` | `int` | Identifiant unique de l'entry |
+| `userId` | `int` | FK vers la table users |
 | `date` | `string` | Date au format `YYYY-MM-DD` |
 | `pushups` | `int` | Nombre de push-ups pour ce jour |
 | `validated` | `boolean` | `true` si le jour est valide |
@@ -86,25 +96,23 @@ Recupere l'historique complet des entries push-ups.
 List<EntryResponse>  ──►  List<PushUpEntry> (PK = date)
 ```
 
-Les entries sont stockees avec `date` comme cle primaire (format `YYYY-MM-DD`). A chaque sync, la table est videe (`clearEntries()`) puis remplie avec les donnees fraiches.
-
 ---
 
 ## POST `/api/health/validate`
 
-Valide les push-ups du jour.
+Valide les push-ups du jour pour l'utilisateur authentifie.
 
 ### Request
 
 ```json
 {
-  "pushups": 30
+  "pushups": 25
 }
 ```
 
 | Champ | Type | Description |
 |-------|------|-------------|
-| `pushups` | `int` | Nombre de push-ups a valider |
+| `pushups` | `int` | Nombre de push-ups a valider (1-200) |
 
 ### Response `200 OK`
 
@@ -113,7 +121,7 @@ Valide les push-ups du jour.
   "success": true,
   "alreadyValidated": false,
   "date": "2026-02-21",
-  "pushups": 30
+  "pushups": 25
 }
 ```
 
@@ -126,28 +134,52 @@ Valide les push-ups du jour.
 | `date` | `string?` | Date validee au format `YYYY-MM-DD` |
 | `pushups` | `int?` | Nombre de push-ups valides |
 
-### Comportement app
+### Comportement
 
-1. `POST /validate` avec le nombre de push-ups
-2. Si `success == true` : declenche un `sync()` complet pour rafraichir stats + entries
-3. L'UI se met a jour automatiquement via LiveData (stepper masque, badge "Done" affiche)
+- Si l'entry du jour existe deja et est validee : retourne `alreadyValidated: true` sans modifier
+- Si l'entry existe mais n'est pas validee : met a jour avec `validated: true`
+- Si aucune entry : cree une nouvelle entry avec `userId` de l'utilisateur authentifie
+- Contrainte unique `(user_id, date)` en base pour eviter les doublons
+
+---
+
+## Schema de base de donnees backend
+
+### Table `users`
+
+| Colonne | Type | Notes |
+|---------|------|-------|
+| id | serial PK | |
+| email | varchar unique | Google email |
+| name | varchar | Google display name |
+| picture | text | Google profile picture URL |
+| google_id | varchar unique | Google sub (unique identifier) |
+| created_at | timestamp | |
+| last_login_at | timestamp | Updated on each API call |
+
+### Table `health_entries`
+
+| Colonne | Type | Notes |
+|---------|------|-------|
+| id | serial PK | |
+| user_id | integer FK → users.id | Nullable (migration compat) |
+| date | varchar | Format `YYYY-MM-DD` |
+| pushups | integer | |
+| validated | boolean | |
+| validated_at | timestamp | |
+| created_at | timestamp | |
+| | | **Unique constraint**: `(user_id, date)` |
 
 ---
 
 ## Gestion des erreurs
 
-L'app utilise `Result<T>` de Kotlin pour wrapper les appels reseau :
-
-```kotlin
-suspend fun sync(): Result<Unit>
-suspend fun validateToday(pushups: Int): Result<Boolean>
-```
-
 | Scenario | Comportement |
 |----------|-------------|
 | API OK | Donnees ecrites en Room, UI mise a jour |
-| API KO (timeout, 500, etc.) | `Result.failure()`, Toast d'erreur, donnees cachees affichees |
-| Pas de connexion | Idem — l'app fonctionne en mode offline avec le cache |
+| 401 Unauthorized | Token clear, re-sign-in au prochain cycle |
+| API KO (timeout, 500) | `Result.failure()`, Toast d'erreur, donnees cachees affichees |
+| Pas de connexion | Mode offline avec le cache Room |
 
 ---
 
@@ -155,6 +187,8 @@ suspend fun validateToday(pushups: Int): Result<Boolean>
 
 ```
 App Start / Pull-to-refresh / WorkManager (30 min)
+    │
+    │  Authorization: Bearer <idToken>
     │
     ├── GET /api/health/stats
     │   └── ► Room: INSERT cached_stats (id=0, REPLACE)
