@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#FF0A0A0A</color>
+    <color name="bg_card">#FF1A1A1A</color>
+    <color name="bg_card_elevated">#FF252525</color>
+
+    <color name="gold_accent">#FFC4963C</color>
+    <color name="gold_accent_dim">#80C4963C</color>
+
+    <color name="validated_bg">#33C4963C</color>
+    <color name="missed_red">#FFDC3C3C</color>
+    <color name="missed_red_bg">#33DC3C3C</color>
+    <color name="done_blue">#FF1A7FB5</color>
+
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="text_muted">#66FFFFFF</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
