@@ -1,6 +1,7 @@
 package com.cyin.daily_push_up
 
 import android.app.Application
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.room.Room
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -19,6 +20,7 @@ class MyApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         RetrofitClient.init(this)
         database = Room.databaseBuilder(
             applicationContext,
