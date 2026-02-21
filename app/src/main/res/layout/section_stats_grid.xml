@@ -28,7 +28,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="\uD83D\uDD25"
+                android:text="🔥"
                 android:textSize="24sp" />
 
             <TextView
@@ -70,7 +70,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="\uD83D\uDCAA"
+                android:text="💪"
                 android:textSize="24sp" />
 
             <TextView
@@ -112,7 +112,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="\uD83D\uDCC5"
+                android:text="✅"
                 android:textSize="24sp" />
 
             <TextView
@@ -154,7 +154,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="\uD83C\uDFC6"
+                android:text="🏆"
                 android:textSize="24sp" />
 
             <TextView
