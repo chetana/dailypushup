@@ -102,11 +102,11 @@ class PushUpWidgetProvider : AppWidgetProvider() {
                 if (stats != null) {
                     views.setTextViewText(R.id.widgetStreak, stats.currentStreak.toString())
                     if (stats.todayValidated) {
-                        views.setTextViewText(R.id.widgetStatus, "Done today!")
-                        views.setTextViewText(R.id.widgetValidateBtn, "Done")
+                        views.setTextViewText(R.id.widgetStatus, "🎉 Done today!")
+                        views.setTextViewText(R.id.widgetValidateBtn, "✅ Done")
                     } else {
-                        views.setTextViewText(R.id.widgetStatus, "Not done yet")
-                        views.setTextViewText(R.id.widgetValidateBtn, "Validate")
+                        views.setTextViewText(R.id.widgetStatus, "💪 Not done yet")
+                        views.setTextViewText(R.id.widgetValidateBtn, "✅ Validate")
                     }
                 }
                 appWidgetManager.updateAppWidget(appWidgetId, views)
