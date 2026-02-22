@@ -8,6 +8,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.cyin.daily_push_up.api.RetrofitClient
 import com.cyin.daily_push_up.data.AppDatabase
+import com.cyin.daily_push_up.widget.ReminderWorker
 import com.cyin.daily_push_up.widget.SyncWorker
 import java.util.concurrent.TimeUnit
 
@@ -27,12 +28,22 @@ class MyApplication : Application() {
             AppDatabase::class.java, "daily-push-up-db"
         ).fallbackToDestructiveMigration().build()
 
-        val syncWork = PeriodicWorkRequestBuilder<SyncWorker>(30, TimeUnit.MINUTES)
+        ReminderWorker.createChannel(this)
+
+        val syncWork = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "pushup_sync",
             ExistingPeriodicWorkPolicy.KEEP,
             syncWork
+        )
+
+        val reminderWork = PeriodicWorkRequestBuilder<ReminderWorker>(1, TimeUnit.HOURS)
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "pushup_reminder",
+            ExistingPeriodicWorkPolicy.KEEP,
+            reminderWork
         )
     }
 }
