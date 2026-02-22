@@ -67,6 +67,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Silently refresh token if it's about to expire (within 5 min)
+        if (TokenStore.isLoggedIn(this) && TokenStore.isExpiringSoon(this)) {
+            lifecycleScope.launch {
+                try {
+                    val credential = GoogleAuthManager.signIn(this@MainActivity)
+                    TokenStore.saveToken(
+                        this@MainActivity,
+                        credential.idToken,
+                        credential.id,
+                        credential.displayName
+                    )
+                } catch (_: Exception) {
+                    // Silent refresh failed — will retry on next 401
+                }
+            }
+        }
+    }
+
     private fun performSignIn() {
         lifecycleScope.launch {
             try {
